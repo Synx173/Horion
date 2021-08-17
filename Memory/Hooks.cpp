@@ -45,8 +45,8 @@ void Hooks::Init() {
 			if (blockLegacyVtable == 0x0 || sigOffset == 0x0)
 				logF("C_BlockLegacy signature not working!!!");
 			else {
-				g_Hooks.BlockLegacy_getRenderLayerHook = std::make_unique<FuncHook>(blockLegacyVtable[168], Hooks::BlockLegacy_getRenderLayer);
-				g_Hooks.BlockLegacy_getLightEmissionHook = std::make_unique<FuncHook>(blockLegacyVtable[171], Hooks::BlockLegacy_getLightEmission);
+				g_Hooks.BlockLegacy_getRenderLayerHook = std::make_unique<FuncHook>(blockLegacyVtable[180], Hooks::BlockLegacy_getRenderLayer);
+				g_Hooks.BlockLegacy_getLightEmissionHook = std::make_unique<FuncHook>(blockLegacyVtable[183], Hooks::BlockLegacy_getLightEmission);
 			}
 		}
 
@@ -200,7 +200,7 @@ void Hooks::Init() {
 		void* timeOfDay = reinterpret_cast<void*>(FindSignature("44 8B C2 B8 F1 19 76 05"));
 		g_Hooks.Dimension_getTimeOfDayHook = std::make_unique<FuncHook>(timeOfDay, Hooks::Dimension_getTimeOfDay);
 
-		void* chestTick = reinterpret_cast<void*>(FindSignature("40 53 57 48 83 EC ? 48 83 79"));
+		void* chestTick = reinterpret_cast<void*>(FindSignature("40 53 57 48 83 EC ?? 48 83 79 ?? ?? 48"));
 		g_Hooks.ChestBlockActor_tickHook = std::make_unique<FuncHook>(chestTick, Hooks::ChestBlockActor_tick);
 
 		void* lerpFunc = reinterpret_cast<void*>(FindSignature("8B 02 89 81 ? ? ? ? 8B 42 ? 89 81 ? ? ? ? 8B 42 ? 89 81 ? ? ? ? C3 CC CC CC CC CC 48 89 5C 24"));
@@ -343,6 +343,13 @@ void Hooks::ChatScreenController_sendChatMessage(uint8_t* _this) {
 	using addCommandToChatHistory_t = void(__fastcall*)(uint8_t*, TextHolder*);
 	static addCommandToChatHistory_t addCommandToChatHistory = reinterpret_cast<addCommandToChatHistory_t>(FindSignature("48 89 5C 24 08 48 89 74 24 10 57 48 83 EC ?? 48 8B 99 ?? ?? ?? ?? 48 8B F2 80"));
 
+	using updateTextbox_t = void(__fastcall*)(__int64, TextHolder*);
+	static updateTextbox_t updateTextbox = reinterpret_cast<updateTextbox_t>(0);
+	if (updateTextbox == nullptr) {
+		auto sig = FindSignature("E8 ? ? ? ? 48 8D 8B ? ? ? ? 0F 57 C0");
+		updateTextbox = reinterpret_cast<updateTextbox_t>(sig + 5 + *reinterpret_cast<int*>(sig + 1)); 
+	}
+
 	TextHolder* messageHolder = reinterpret_cast<TextHolder*>(_this + 0xA98);
 	if (messageHolder->getTextLength() > 0) {
 		char* message = messageHolder->getText();
@@ -353,16 +360,19 @@ void Hooks::ChatScreenController_sendChatMessage(uint8_t* _this) {
 			addCommandToChatHistory(_this, messageHolder);  // This will put the command in the chat history (Arrow up/down)
 
 			__int64 v17 = 0;
-			__int64* v15 = *(__int64**)(*(__int64*)(_this + 0xA80) + 0x20i64);
-			__int64 v16 = *v15;
+			C_ClientInstance* v15 = g_Data.getClientInstance();
+			__int64 vtable = *reinterpret_cast<__int64*>(v15);
 
-			if (*(BYTE*)(_this + 0xA9A))
-				v17 = (*(__int64(__cdecl**)(__int64*))(v16 + 0x9B8))(v15);
+			if (*(BYTE*)(_this + 0xA9A)) // isDevConsole
+				v17 = (*(__int64(__cdecl**)(C_ClientInstance*))(vtable + 0x9B8))(v15);
 			else
-				v17 = (*(__int64(__cdecl**)(__int64*))(v16 + 0x9B0))(v15);
+				v17 = (*(__int64(__cdecl**)(C_ClientInstance*))(vtable + 0x9B0))(v15);
 			*(DWORD*)(_this + 0xABC) = *(DWORD*)(v17 + 0x20);
 
 			messageHolder->resetWithoutDelete();
+			// MinecraftScreenModel::updateTextBoxText
+			//updateTextbox(0, messageHolder);
+
 			return;
 		} else if (*message == '.') {
 			// maybe the user forgot his prefix, give him some helpful advice
@@ -392,7 +402,7 @@ __int64 Hooks::UIScene_render(C_UIScene* uiscene, __int64 screencontext) {
 
 	bool alwaysRender = moduleMgr->isInitialized() && moduleMgr->getModule<HudModule>()->alwaysShow;
 
-	TextHolder alloc = {};
+	TextHolder alloc{};
 	uiscene->getScreenName(&alloc);
 
 	if (alloc.getTextLength() < 100) {
@@ -402,7 +412,7 @@ __int64 Hooks::UIScene_render(C_UIScene* uiscene, __int64 screencontext) {
 	if (!g_Hooks.shouldRender) {
 		g_Hooks.shouldRender = alwaysRender || (strcmp(alloc.getText(), "start_screen") == 0 || (alloc.getTextLength() >= 11 && strncmp(alloc.getText(), "play_screen", 11)) == 0);
 	}
-	alloc.resetWithoutDelete();
+	alloc.alignedTextLength = 0;
 
 	return oRender(uiscene, screencontext);
 }
@@ -1357,7 +1367,7 @@ __int64 Hooks::ChestScreenController_tick(C_ChestScreenController* a1) {
 float Hooks::GetGamma(uintptr_t* a1) {
 	static auto fullBrightModule = moduleMgr->getModule<FullBright>();
 	if (fullBrightModule->isEnabled())
-		return 25.f;
+		return fullBrightModule->intensity;
 
 	//Get the normal gamma value
 	float* gamer = (float*)*(a1 + 0x27);

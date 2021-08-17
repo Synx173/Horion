@@ -15,6 +15,10 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include "../../../Utils/Json.hpp"
+#include "../../path/JoePathFinder.h"
+#include "../../path/JoeMovementController.h"
+#include "../../path/goals/JoeGoal.h"
+#include "../../path/goals/JoeGoalXZ.h"
 
 using json = nlohmann::json;
 
@@ -108,7 +112,7 @@ void loadFile(std::wstring filePath) {
 }
 
 void TestModule::onEnable() {
-	renderPos.clear();
+	/* renderPos.clear();
 
 	HorionDataPacket packet;
 	packet.cmd = CMD_FILECHOOSER;
@@ -138,7 +142,7 @@ void TestModule::onEnable() {
 		}
 	});
 
-	g_Data.sendPacketToInjector(packet);
+	g_Data.sendPacketToInjector(packet);*/
 }
 
 bool tryPlace(const vec3_ti& blockPos) {
@@ -178,7 +182,15 @@ bool tryPlace(const vec3_ti& blockPos) {
 }
 
 void TestModule::onTick(C_GameMode* gm) {
-	if (g_Data.getLocalPlayer() == nullptr)
+	
+	auto player = g_Data.getLocalPlayer();
+	auto pPos = player->eyePos0;
+	vec3_ti startNode((int)floorf(pPos.x), (int)roundf(pPos.y - 1.62f), (int)floorf(pPos.z));
+	auto pathFinder = std::make_shared<JoePathFinder>(startNode, player->region, std::make_unique<JoeGoalXZ>(vec3_ti(143, 0, -41)));
+	pathFinder->pathSearchTimeout = 1;
+	pathFinder->findPath();
+
+	/* if (g_Data.getLocalPlayer() == nullptr)
 		return;
 	if (!g_Data.canUseMoveKeys())
 		return;
@@ -202,11 +214,10 @@ void TestModule::onTick(C_GameMode* gm) {
 			}
 		}
 
-	}
+	}*/
 }
 
 void TestModule::onMove(C_MoveInputHandler* hand){
-
 }
 
 void TestModule::onPostRender(C_MinecraftUIRenderContext* renderCtx) {
@@ -224,6 +235,7 @@ void TestModule::onDisable() {
 float t = 0;
 void TestModule::onLevelRender() {
 
+	/*
 	DrawUtils::setColor(0.8f, 0.4f, 0.4f, 1);
 	int radius = 50;
 	
@@ -240,6 +252,6 @@ void TestModule::onLevelRender() {
 		if (!blockLegacy->material->isReplaceable)
 			continue;
 		DrawUtils::drawBox3d(pos.toFloatVector(), pos.add(1, 1, 1).toFloatVector());
-	}
+	}*/
 	
 }
