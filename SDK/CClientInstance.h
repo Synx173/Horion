@@ -8,9 +8,9 @@
 
 class Minecraft {
 private:
-	char pad_0x0000[0xB0];  //0x0000
+	char pad_0x0000[0xB8];  //0x0000
 public:
-	float* timer;  //0x00B0
+	float* timer;  //0x00B8
 };
 
 class Tessellator;

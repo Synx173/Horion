@@ -729,7 +729,6 @@ class C_ServerPlayer;
 class C_Player : public C_Entity {
 public:
 	C_PlayerInventoryProxy *getSupplies();
-	;
 
 	C_ItemStack *getSelectedItem() {
 		auto supplies = this->getSupplies();
